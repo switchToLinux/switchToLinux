@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Color Schema Picker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        const ColorSchemaPicker = () => {
+            const [schema, setSchema] = useState([
+                '#41495d', '#1a5665', '#418b5b', '#99560a', '#33658A',
+                '#4B1412', '#d99263', '#F26419', '#ce4b4b', '#bf616a',
+                '#ffffff', '#336580'
+            ]);
+
+            const addColor = () => {
+                setSchema([...schema, '#000000']);
+            };
+
+            const updateColor = (index, newColor) => {
+                const updatedSchema = [...schema];
+                updatedSchema[index] = newColor;
+                setSchema(updatedSchema);
+            };
+
+            const copyColor = (color) => {
+                navigator.clipboard.writeText(color);
+                alert(`Copied ${color} to clipboard!`);
+            };
+
+            const copySchema = () => {
+                const schemaText = [
+                    '/* background color schema , 基础背景色搭配 */',
+                    ...schema.slice(0, 10).map((color, i) => `@define-color color${i} ${color};`),
+                    '',
+                    '/* foreground color schema , 前景色用途，避免与 color0-9重复 */',
+                    ...schema.slice(10).map((color, i) => `@define-color color${i + 10} ${color};`),
+                    '',
+                    '/* used by module color schema */',
+                    '@define-color foreground @color10;',
+                    '@define-color background @color0;',
+                    '@define-color focused @color11;',
+                    '@define-color cursor @color0;',
+                    '@define-color urgent @color8;',
+                    '@define-color critical @color2;',
+                    '@define-color warning @color6;'
+                ].join('\n');
+                navigator.clipboard.writeText(schemaText);
+                alert('Color schema copied to clipboard!');
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
+                    <h1 className="text-4xl font-bold mb-8 text-gray-800">Color Schema Picker</h1>
+
+                    <div className="w-full max-w-5xl flex flex-col items-center">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8 w-full">
+                            {schema.map((color, index) => (
+                                <div key={index} className="flex flex-col items-center">
+                                    <div
+                                        className="w-24 h-24 rounded-lg flex items-center justify-center text-white text-sm font-semibold mb-2 cursor-pointer"
+                                        style={{ backgroundColor: color }}
+                                        onClick={() => copyColor(color)}
+                                        title="Click to copy color"
+                                    >
+                                        {color.toUpperCase()}
+                                    </div>
+                                    <input
+                                        type="color"
+                                        value={color}
+                                        onChange={(e) => updateColor(index, e.target.value)}
+                                        className="w-12 h-8 cursor-pointer"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex space-x-4 mb-8">
+                            <button
+                                onClick={addColor}
+                                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            >
+                                Add Color
+                            </button>
+                            <button
+                                onClick={copySchema}
+                                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                            >
+                                Copy Schema
+                            </button>
+                        </div>
+
+                        <div className="w-full bg-white p-6 rounded-lg shadow-lg">
+                            <h2 className="text-2xl font-semibold mb-4 text-gray-800">Preview</h2>
+                            <div className="space-y-4">
+                                <div
+                                    className="p-4 rounded"
+                                    style={{ backgroundColor: schema[0], color: schema[10] }}
+                                >
+                                    Background (color0) with Foreground (color10)
+                                </div>
+                                <div
+                                    className="p-4 rounded"
+                                    style={{ backgroundColor: schema[2], color: schema[10] }}
+                                >
+                                    Critical (color2) with Foreground (color10)
+                                </div>
+                                <div
+                                    className="p-4 rounded"
+                                    style={{ backgroundColor: schema[6], color: schema[10] }}
+                                >
+                                    Warning (color6) with Foreground (color10)
+                                </div>
+                                <div
+                                    className="p-4 rounded"
+                                    style={{ backgroundColor: schema[8], color: schema[10] }}
+                                >
+                                    Urgent (color8) with Foreground (color10)
+                                </div>
+                                <div
+                                    className="p-4 rounded"
+                                    style={{ backgroundColor: schema[11], color: schema[10] }}
+                                >
+                                    Focused (color11) with Foreground (color10)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ColorSchemaPicker />);
+    </script>
+</body>
+
+</html>
