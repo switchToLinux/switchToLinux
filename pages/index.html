@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>欢迎来到Linux的世界</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            display: flex;
+        }
+
+        #nav-toggle {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        nav {
+            background-color: #333;
+            color: white;
+            width: 200px;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            transition: left 0.3s ease;
+            z-index: 9;
+        }
+
+        nav ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 20px 0;
+        }
+
+        nav ul li {
+            margin: 10px 0;
+        }
+
+        nav ul li a {
+            color: white;
+            text-decoration: none;
+            display: block;
+            padding: 10px 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        nav ul li a:hover {
+            background-color: #555;
+        }
+
+        main {
+            padding: 20px;
+            flex-grow: 1;
+            margin-left: 200px;
+            transition: margin-left 0.3s ease;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                left: -200px;
+            }
+
+            main {
+                margin-left: 0;
+            }
+        }
+
+        .nav-hidden nav {
+            left: -200px;
+        }
+
+        .nav-hidden main {
+            margin-left: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="nav-toggle">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <nav>
+        <ul id="nav-links">
+            <!-- 导航链接将通过 JavaScript 动态添加 -->
+        </ul>
+    </nav>
+    <main>
+        <h1>欢迎来到导航页面</h1>
+        <p>这里为你提供丰富的导航链接。</p>
+    </main>
+    <script>
+        const navLinks = [
+            {
+                "text": "首页",
+                "url": "#"
+            },
+            {
+                "text": "wayland颜色方案工具",
+                "url": "color-schema/"
+            },
+            {
+                "text": "关于我",
+                "url": "#about"
+            },
+            {
+                "text": "联系我们",
+                "url": "#contact"
+            }
+        ];
+
+        const navLinksList = document.getElementById('nav-links');
+        navLinks.forEach(link => {
+            const listItem = document.createElement('li');
+            const anchor = document.createElement('a');
+            anchor.href = link.url;
+            anchor.textContent = link.text;
+            listItem.appendChild(anchor);
+            navLinksList.appendChild(listItem);
+        });
+
+        const navToggle = document.getElementById('nav-toggle');
+        const body = document.body;
+        navToggle.addEventListener('click', () => {
+            body.classList.toggle('nav-hidden');
+        });
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+</body>
+
+</html>
