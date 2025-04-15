@@ -9,6 +9,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .color-container {
+            display: flex;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+    
+        .color-item {
+            flex-basis: calc(100% / 15);
+            max-width: calc(100% / 15);
+        }
+    </style>
 </head>
 
 <body>
@@ -82,10 +94,10 @@
             return (
                 <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
                     <h1 className="text-4xl font-bold mb-8 text-gray-800">Color Schema Picker(waybar主题的颜色方案工具)</h1>
-                    <div className="w-full max-w-5xl flex flex-col items-center">
+                    <div className="w-full max-w-full flex flex-col items-center">
                         <textarea
-                            className="w-full p-2 border border-gray-300 rounded mb-4"
-                            placeholder="Paste your color schema here"
+                            className="w-full p-5 border border-gray-300 rounded mb-8"
+                            placeholder="将你的颜色方案粘贴在这里"
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                         />
