@@ -15,10 +15,102 @@
             flex-wrap: wrap;
             width: 100%;
         }
-    
+
         .color-item {
             flex-basis: calc(100% / 15);
             max-width: calc(100% / 15);
+        }
+
+        .color-picker-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            width: 320px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+        }
+
+        /* 自定义颜色选择器样式 */
+        .color-picker {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .color-spectrum {
+            position: relative;
+            height: 200px;
+            border-radius: 4px;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        .spectrum-mask {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, white, transparent),
+                linear-gradient(to bottom, transparent, black);
+        }
+
+        .spectrum-pointer {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .hue-slider {
+            position: relative;
+            height: 20px;
+            border-radius: 4px;
+            background: linear-gradient(to right,
+                    hsl(0, 100%, 50%),
+                    hsl(60, 100%, 50%),
+                    hsl(120, 100%, 50%),
+                    hsl(180, 100%, 50%),
+                    hsl(240, 100%, 50%),
+                    hsl(300, 100%, 50%),
+                    hsl(360, 100%, 50%));
+            cursor: pointer;
+        }
+
+        .hue-pointer {
+            position: absolute;
+            width: 16px;
+            height: 24px;
+            border: 2px solid white;
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+            border-radius: 2px;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .color-preview {
+            height: 40px;
+            border-radius: 4px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -26,7 +118,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useRef } = React;
+        const { useState, useRef, useEffect } = React;
 
         const ColorSchemaPicker = () => {
             const [schema, setSchema] = useState([
@@ -36,12 +128,298 @@
             ]);
             const colorInputRefs = useRef([]);
             const [inputText, setInputText] = useState('');
+            const [showColorPicker, setShowColorPicker] = useState(false);
+            const [selectedIndex, setSelectedIndex] = useState(null);
+            // 颜色选择器状态
+            const [hsv, setHsv] = useState({ h: 0, s: 100, v: 100 });
+            const [rgb, setRgb] = useState({ r: 255, g: 0, b: 0 });
+            const [hex, setHex] = useState('#FF0000');
+
+            // 颜色选择器DOM引用
+            const spectrumRef = useRef(null);
+            const hueSliderRef = useRef(null);
+            const spectrumPointerRef = useRef(null);
+            const huePointerRef = useRef(null);
+
+            // 颜色转换函数
+            const hsvToRgb = (h, s, v) => {
+                h = h / 360;
+                s = s / 100;
+                v = v / 100;
+
+                let r, g, b;
+
+                const i = Math.floor(h * 6);
+                const f = h * 6 - i;
+                const p = v * (1 - s);
+                const q = v * (1 - f * s);
+                const t = v * (1 - (1 - f) * s);
+
+                switch (i % 6) {
+                    case 0: r = v; g = t; b = p; break;
+                    case 1: r = q; g = v; b = p; break;
+                    case 2: r = p; g = v; b = t; break;
+                    case 3: r = p; g = q; b = v; break;
+                    case 4: r = t; g = p; b = v; break;
+                    case 5: r = v; g = p; b = q; break;
+                    default: break;
+                }
+
+                return {
+                    r: Math.round(r * 255),
+                    g: Math.round(g * 255),
+                    b: Math.round(b * 255)
+                };
+            };
+
+            const rgbToHex = (r, g, b) => {
+                const toHex = (c) => {
+                    const hex = c.toString(16);
+                    return hex.length === 1 ? '0' + hex : hex;
+                };
+                return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+            };
+
+            const hsvToHex = (h, s, v) => {
+                const rgb = hsvToRgb(h, s, v);
+                return rgbToHex(rgb.r, rgb.g, rgb.b);
+            };
+
+            const hexToHsv = (hex) => {
+                // 去掉#符号
+                hex = hex.replace('#', '');
+
+                // 解析RGB值
+                const r = parseInt(hex.substring(0, 2), 16);
+                const g = parseInt(hex.substring(2, 4), 16);
+                const b = parseInt(hex.substring(4, 6), 16);
+
+                // 转换为0-1范围
+                const r1 = r / 255;
+                const g1 = g / 255;
+                const b1 = b / 255;
+
+                // 找出最大值和最小值
+                const max = Math.max(r1, g1, b1);
+                const min = Math.min(r1, g1, b1);
+
+                // 计算色相
+                let h = 0;
+                if (max !== min) {
+                    if (max === r1) {
+                        h = (60 * ((g1 - b1) / (max - min)) + 360) % 360;
+                    } else if (max === g1) {
+                        h = 60 * ((b1 - r1) / (max - min)) + 120;
+                    } else {
+                        h = 60 * ((r1 - g1) / (max - min)) + 240;
+                    }
+                }
+
+                // 计算饱和度
+                const s = max === 0 ? 0 : (1 - min / max) * 100;
+
+                // 计算亮度
+                const v = max * 100;
+
+                return { h, s, v };
+            };
+
+            // 更新所有颜色表示
+            const updateColorDisplay = (newHsv) => {
+                setHsv(newHsv);
+                const rgb = hsvToRgb(newHsv.h, newHsv.s, newHsv.v);
+                setRgb(rgb);
+                const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+                setHex(hex);
+
+                // 更新DOM元素样式
+                if (spectrumRef.current) {
+                    spectrumRef.current.style.backgroundColor = `hsl(${newHsv.h}, 100%, 50%)`;
+                }
+
+                // 更新指针位置
+                if (spectrumPointerRef.current) {
+                    const x = (newHsv.s / 100) * 100;
+                    const y = (1 - newHsv.v / 100) * 100;
+                    spectrumPointerRef.current.style.left = `${x}%`;
+                    spectrumPointerRef.current.style.top = `${y}%`;
+                }
+
+                if (huePointerRef.current) {
+                    const x = (newHsv.h / 360) * 100;
+                    huePointerRef.current.style.left = `${x}%`;
+                    huePointerRef.current.style.backgroundColor = hex;
+                }
+            };
+
+            // 处理色相滑块拖动
+            const handleHueSliderDrag = (e) => {
+                const sliderRect = hueSliderRef.current.getBoundingClientRect();
+                let x = e.clientX || (e.touches && e.touches[0].clientX);
+                x = x - sliderRect.left;
+
+                // 限制在滑块范围内
+                x = Math.max(0, Math.min(x, sliderRect.width));
+
+                // 计算色相值 (0-360)
+                const h = (x / sliderRect.width) * 360;
+
+                // 更新颜色
+                updateColorDisplay({ ...hsv, h });
+            };
+
+            // 处理颜色选择区域拖动
+            const handleSpectrumDrag = (e) => {
+                const spectrumRect = spectrumRef.current.getBoundingClientRect();
+                let x = e.clientX || (e.touches && e.touches[0].clientX);
+                let y = e.clientY || (e.touches && e.touches[0].clientY);
+
+                x = x - spectrumRect.left;
+                y = y - spectrumRect.top;
+
+                // 限制在选择区域内
+                x = Math.max(0, Math.min(x, spectrumRect.width));
+                y = Math.max(0, Math.min(y, spectrumRect.height));
+
+                // 计算饱和度和亮度
+                const s = (x / spectrumRect.width) * 100;
+                const v = (1 - y / spectrumRect.height) * 100;
+
+                // 更新颜色
+                updateColorDisplay({ ...hsv, s, v });
+            };
+
+            // 初始化颜色选择器
+            useEffect(() => {
+                if (spectrumRef.current && hueSliderRef.current) {
+                    // 初始化色相滑块和颜色区域
+                    updateColorDisplay(hsv);
+
+                    // 添加事件监听器
+                    const hueSlider = hueSliderRef.current;
+                    const spectrum = spectrumRef.current;
+
+                    // 处理色相滑块点击
+                    const handleHueClick = (e) => {
+                        e.preventDefault();
+                        handleHueSliderDrag(e); // 这里会调用 updateColorDisplay
+                    };
+
+                    // 处理颜色区域点击
+                    const handleSpectrumClick = (e) => {
+                        e.preventDefault();
+                        handleSpectrumDrag(e); // 这里会调用 updateColorDisplay
+                    };
+
+                    // 色相滑块拖动
+                    const handleHueDragStart = (e) => {
+                        e.preventDefault();
+                        handleHueSliderDrag(e);
+
+                        const handleHueDragMove = (moveEvent) => {
+                            handleHueSliderDrag(moveEvent);
+                        };
+
+                        const handleHueDragEnd = () => {
+                            document.removeEventListener('mousemove', handleHueDragMove);
+                            document.removeEventListener('touchmove', handleHueDragMove);
+                            document.removeEventListener('mouseup', handleHueDragEnd);
+                            document.removeEventListener('touchend', handleHueDragEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleHueDragMove);
+                        document.addEventListener('touchmove', handleHueDragMove);
+                        document.addEventListener('mouseup', handleHueDragEnd);
+                        document.addEventListener('touchend', handleHueDragEnd);
+                    };
+
+                    // 颜色区域拖动
+                    const handleSpectrumDragStart = (e) => {
+                        e.preventDefault();
+                        handleSpectrumDrag(e);
+
+                        const handleSpectrumDragMove = (moveEvent) => {
+                            handleSpectrumDrag(moveEvent);
+                        };
+
+                        const handleSpectrumDragEnd = () => {
+                            document.removeEventListener('mousemove', handleSpectrumDragMove);
+                            document.removeEventListener('touchmove', handleSpectrumDragMove);
+                            document.removeEventListener('mouseup', handleSpectrumDragEnd);
+                            document.removeEventListener('touchend', handleSpectrumDragEnd);
+                        };
+
+                        document.addEventListener('mousemove', handleSpectrumDragMove);
+                        document.addEventListener('touchmove', handleSpectrumDragMove);
+                        document.addEventListener('mouseup', handleSpectrumDragEnd);
+                        document.addEventListener('touchend', handleSpectrumDragEnd);
+                    };
+
+                    hueSlider.addEventListener('mousedown', handleHueDragStart);
+                    hueSlider.addEventListener('touchstart', handleHueDragStart);
+                    hueSlider.addEventListener('click', handleHueClick);
+
+                    spectrum.addEventListener('mousedown', handleSpectrumDragStart);
+                    spectrum.addEventListener('touchstart', handleSpectrumDragStart);
+                    spectrum.addEventListener('click', handleSpectrumClick);
+
+                    // 清理事件监听器
+                    return () => {
+                        hueSlider.removeEventListener('mousedown', handleHueDragStart);
+                        hueSlider.removeEventListener('touchstart', handleHueDragStart);
+                        hueSlider.removeEventListener('click', handleHueClick);
+
+                        spectrum.removeEventListener('mousedown', handleSpectrumDragStart);
+                        spectrum.removeEventListener('touchstart', handleSpectrumDragStart);
+                        spectrum.removeEventListener('click', handleSpectrumClick);
+                    };
+                }
+            }, [spectrumRef, hueSliderRef, hsv]);
+
+            // 当打开颜色选择器时初始化颜色
+            useEffect(() => {
+                if (showColorPicker && selectedIndex !== null) {
+                    const color = schema[selectedIndex];
+                    const hsv = hexToHsv(color);
+                    updateColorDisplay(hsv);
+                }
+            }, [showColorPicker, selectedIndex, schema]);
+
+            // 处理十六进制输入
+            const handleHexChange = (e) => {
+                let value = e.target.value.toUpperCase();
+
+                // 验证十六进制格式
+                const hexPattern = /^#?([0-9A-F]{3}){1,2}$/i;
+                if (hexPattern.test(value)) {
+                    // 添加#前缀如果没有
+                    if (!value.startsWith('#')) {
+                        value = '#' + value;
+                    }
+
+                    // 如果是3位格式，扩展为6位
+                    if (value.length === 4) {
+                        value = '#' +
+                            value[1] + value[1] +
+                            value[2] + value[2] +
+                            value[3] + value[3];
+                    }
+
+                    // 更新颜色
+                    const hsv = hexToHsv(value);
+                    updateColorDisplay(hsv);
+                    setHex(value); // 保证输入框和预览同步
+                } else {
+                    setHex(value); // 允许用户输入不完整的hex
+                }
+            };
 
             const addColor = () => {
                 setSchema([...schema, '#000000']);
             };
 
-            const updateColor = (index, newColor) => {
+            // 重命名为updateSchemaColor以避免冲突
+            const updateSchemaColor = (index, newColor) => {
                 const updatedSchema = [...schema];
                 updatedSchema[index] = newColor;
                 setSchema(updatedSchema);
@@ -73,21 +451,35 @@
                 alert('Color schema copied to clipboard!');
             };
 
-            const triggerColorPicker = (index) => {
-                colorInputRefs.current[index].click();
+            const openColorPicker = (index, color) => {
+                setShowColorPicker(true);
+                setSelectedIndex(index);
+                // 颜色值将在useEffect中初始化
+            };
+
+            const closeColorPicker = () => {
+                setShowColorPicker(false);
+                setSelectedIndex(null);
+            };
+
+            const saveColor = () => {
+                if (selectedIndex !== null) {
+                    updateSchemaColor(selectedIndex, hex);
+                }
+                closeColorPicker();
             };
 
             const parseSchema = () => {
                 const regex = /@define-color color(\d+) (\#[0-9a-fA-F]{6});/g;
                 let match;
                 const newSchema = [];
-                while ((match = regex.exec(inputText))!== null) {
+                while ((match = regex.exec(inputText)) !== null) {
                     const index = parseInt(match[1]);
                     const color = match[2];
                     newSchema[index] = color;
                 }
                 // 移除未定义的颜色
-                const finalSchema = newSchema.filter(color => color!== undefined);
+                const finalSchema = newSchema.filter(color => color !== undefined);
                 setSchema(finalSchema);
             };
 
@@ -113,20 +505,13 @@
                                     <div
                                         className="h-80 flex items-center justify-center text-white text-sm font-semibold cursor-pointer"
                                         style={{ backgroundColor: color }}
-                                        onClick={() => triggerColorPicker(index)}
+                                        onClick={() => openColorPicker(index, color)}
                                         title="Click to adjust or copy color"
                                     >
                                         {'color-' + index}
                                         <br />
                                         {color.toUpperCase()}
                                     </div>
-                                    <input
-                                        type="color"
-                                        value={color}
-                                        onChange={(e) => updateColor(index, e.target.value)}
-                                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                                        ref={(el) => (colorInputRefs.current[index] = el)}
-                                    />
                                 </div>
                             ))}
                         </div>
@@ -182,6 +567,50 @@
                             </div>
                         </div>
                     </div>
+                    {showColorPicker && (
+                        <>
+                            <div className="overlay" onClick={closeColorPicker} />
+                            <div className="color-picker-modal">
+                                <h2 className="text-xl font-semibold mb-4">Select Color</h2>
+
+                                {/* 自定义颜色选择器 */}
+                                <div className="color-picker">
+                                    <input
+                                        type="text"
+                                        value={hex}
+                                        onChange={handleHexChange}
+                                        className="p-2 border border-gray-300 rounded mb-4"
+                                        placeholder="#FF0000"
+                                    />
+                                    <div className="color-preview" style={{ backgroundColor: hex }} />
+
+                                    <div className="color-spectrum" ref={spectrumRef}>
+                                        <div className="spectrum-mask" />
+                                        <div className="spectrum-pointer" ref={spectrumPointerRef} />
+                                    </div>
+
+                                    <div className="hue-slider" ref={hueSliderRef}>
+                                        <div className="hue-pointer" ref={huePointerRef} style={{ backgroundColor: hex }} />
+                                    </div>
+                                </div>
+
+                                <div className="flex space-x-4 mt-6">
+                                    <button
+                                        onClick={saveColor}
+                                        className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                    >
+                                        Save
+                                    </button>
+                                    <button
+                                        onClick={closeColorPicker}
+                                        className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             );
         };
